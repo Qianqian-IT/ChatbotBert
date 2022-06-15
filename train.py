@@ -1,11 +1,10 @@
 import numpy as np
 from transformers import AdamW
-from data.dataset import corpus_dataset
+from data.dataset import corpus_dataset, read_questions_from_dir
 from transformers import BertForSequenceClassification
 import argparse
 from torch.utils.data import DataLoader
 import torch
-import torch.nn as nn
 import logging
 import random
 import torch.nn.functional as f
@@ -28,13 +27,12 @@ def train(model, args, train_dataset, val_dataset, optimizer):
             logits = output[1]
             # 反向梯度信息
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)  # 梯度裁剪
 
             # 参数更新
             optimizer.step()
             label = torch.tensor(batch[3])
             acc = (logits.argmax(1) == label).float().mean()
-            #if step % 10 == 0:
             logging.info(f"Epoch: {epoch}, Batch[{step}/{len(train_dataloader)}], "
                         f"Train loss :{loss.item():.3f}, Train acc: {acc:.3f}")
         model.eval()
@@ -94,12 +92,7 @@ def main():
         type=str,
         help="The output directory where the model predictions and checkpoints will be written.",
     )
-    parser.add_argument(
-        "--labels",
-        default="",
-        type=str,
-        help="Path to a file containing all labels.",
-    )
+
     parser.add_argument(
         "--classes",
         default=9,
@@ -118,9 +111,7 @@ def main():
     # Setup logging
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger = logging.getLogger("__main__")
-    
-    # Set seed: todo()
-    #set_seed(args) 
+
     # dataset preparation
     model = BertForSequenceClassification.from_pretrained(args.pretrained_model, num_labels=args.classes, output_hidden_states=False)
     model.to(device)
@@ -129,23 +120,23 @@ def main():
     # training
     train_dataset = corpus_dataset(args.data_dir)
     val_dataset = corpus_dataset(args.val_dir)
-    
+    encoded_questions, label, label_dict, answer = read_questions_from_dir(args.data_dir)
     optimizer_params = {'lr': 1e-5, 'eps': 1e-6, 'correct_bias': False}
 
     optimizer = AdamW(model.parameters(), **optimizer_params)
-    total_steps = len(train_dataset) * args.epochs
     train(model, args, train_dataset, val_dataset, optimizer=optimizer)
     
-    sentence = ['你的爱好']
+    sentence = ['你平时喜欢做什么']
+
+    print('问题：', sentence)
+
     tokenizer = AutoTokenizer.from_pretrained('bert-base-chinese')
     sentence = tokenizer(sentence)  
     model.load_state_dict(torch.load('model.pt'))
-    # model = torch.load('model.pt')
-    print(sentence)
     pred = model(torch.tensor(sentence['input_ids']).to(device),torch.tensor(sentence['token_type_ids']).to(device),torch.tensor(sentence['attention_mask']).to(device)) 
-    print('预测是：',pred)
-    #import random
-    #print('回答是：',random.choice(answer[pred]))
+    pred = pred.logits.argmax(1)[0].item()
+    
+    print('回答：', random.choice(answer[pred]))
 
 
 
