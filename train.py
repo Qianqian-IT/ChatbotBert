@@ -139,7 +139,5 @@ def main():
     print('回答：', random.choice(answer[pred]))
 
 
-
-
 if __name__ == "__main__":
     main()
