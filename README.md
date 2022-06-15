@@ -2,7 +2,7 @@
 本项目基于huggingface的transformers库搭建Bert分类模型，构建一个简单的Bert聊天机器人
 
 ## Pipeline
-
+[搭建思路]（个人学习总结）(/doc/搭建思路.md)
 
 ## Install
 ```
